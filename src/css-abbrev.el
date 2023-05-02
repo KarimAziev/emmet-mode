@@ -6,6 +6,7 @@
  emmet-css-unit-aliases
  (gethash "unitAliases" (gethash "css" emmet-preferences)))
 (defun emmet-css-arg-number (input)
+  "Parse CSS arg from INPUT."
   (emmet-parse
    " *\\(\\(?:-\\|\\)[0-9.]+\\)\\(-\\|[A-Za-z]*\\)" 3 "css number arguments"
    (cons (list (elt it 1)
@@ -25,6 +26,7 @@
  emmet-css-color-trailing-aliases
  (gethash "trailingAliases" (gethash "color" (gethash "css" emmet-preferences))))
 (defun emmet-css-arg-color (input)
+  "Parse color from INPUT."
   (emmet-parse
    (concat " *#\\([0-9a-fA-F]\\{1,6\\}\\)\\(rgb\\|\\)\\(["
            (emmet-join-string
@@ -33,13 +35,16 @@
    4 "css color argument"
    (let ((color
           (let* ((n (elt it 1))
-                (l (length n)))
+                 (l (length n)))
             (substring
-             (cond ((= l 1) (concat (make-list 6 (string-to-char n))))
-                   ((= l 2) (concat n n n))
-                   ((= l 3) (concat
-                             (cl-loop for c in (string-to-list n)
-                                   append (list c c))))
+             (cond ((= l 1)
+                    (concat (make-list 6 (string-to-char n))))
+                   ((= l 2)
+                    (concat n n n))
+                   ((= l 3)
+                    (concat
+                     (cl-loop for c in (string-to-list n)
+                              append (list c c))))
                    (t (concat n n)))
              0 6))))
      (cons
@@ -51,66 +56,110 @@
                     (string-to-number (substring color 4 6) 16))
           (concat
            "#"
-           (let ((filter (cond ((string= emmet-css-color-case "auto") #'identity)
-                               ((string= emmet-css-color-case "up")   #'upcase)
-                               (t                                         #'downcase))))
+           (let ((filter
+                  (cond ((string= emmet-css-color-case "auto") #'identity)
+                        ((string= emmet-css-color-case "up")   #'upcase)
+                        (t
+                         #'downcase))))
              (funcall
               filter
               (if (and emmet-css-color-shorten-if-possible
-                       (eql (aref color 0) (aref color 1))
-                       (eql (aref color 2) (aref color 3))
-                       (eql (aref color 4) (aref color 5)))
-                  (concat (mapcar #'(lambda (i) (aref color i)) '(0 2 4)))
+                       (eql (aref color 0)
+                            (aref color 1))
+                       (eql (aref color 2)
+                            (aref color 3))
+                       (eql (aref color 4)
+                            (aref color 5)))
+                  (concat (mapcar #'(lambda (i)
+                                      (aref color i)) '(0 2 4)))
                 color))))))
       (if (< 0 (length (elt it 3)))
           (cons (gethash (elt it 3) emmet-css-color-trailing-aliases) input)
         input)))))
 
 (defun emmet-css-arg-something (input)
+  "Parse INPUT as css argument."
   (emmet-parse
    " *\\([^ ]+\\)" 2 "css argument"
    (cons (elt it 1) input)))
 
 (defun emmet-css-parse-arg (input)
-  (emmet-run emmet-css-arg-number it
-                 (emmet-run emmet-css-arg-color it
-                                (emmet-run emmet-css-arg-something it
-                                               (if (equal input "")
-                                                   it
-                                                 (cons input ""))))))
+  "Parse INPUT with `emmet-css-arg-number'."
+  (let ((it
+         (emmet-css-arg-number input)))
+    (if
+        (not
+         (eq 'error
+             (car it)))
+        it
+      (let ((it
+             (emmet-css-arg-color input)))
+        (if
+            (not
+             (eq 'error
+                 (car it)))
+            it
+          (let ((it
+                 (emmet-css-arg-something input)))
+            (if
+                (not
+                 (eq 'error
+                     (car it)))
+                it
+              (if
+                  (equal input "")
+                  it
+                (cons input "")))))))))
 
 (defun emmet-css-important-p (input)
+  "Check whether INPUT is important."
   (let ((len (length input)))
     (and (< 0 len)
          (char-equal (aref input (1- len)) ?!))))
 
 (defun emmet-css-parse-args (args)
+  "Parse ARGS."
   (when args
     (let ((rt nil))
       (cl-loop
        (emmet-pif
         (emmet-css-parse-arg args)
         (cl-loop for i on it do (push (car i) rt)
-              while (consp (cdr i))
-              finally (setq args (cdr i)))
+                 while (consp (cdr i))
+                 finally (setq args (cdr i)))
         (cl-return (nreverse rt)))))))
 
 (defun emmet-css-split-args (exp)
+  "Split EXP."
   (emmet-aif
    (string-match "\\(?:[ #0-9$]\\|-[0-9]\\)" exp)
-   (list (substring exp 0 it) (substring exp it))
+   (list (substring exp 0 it)
+         (substring exp it))
    (list exp nil)))
 
 (defun emmet-css-split-vendor-prefixes (input)
-  (emmet-parse
-   "\\(-[wmso]+-\\|-\\|\\)\\(.*\\)" 3 "css vendor prefixes"
-   (list (elt it 2)
-         (let ((vp (elt it 1)))
-           (if (not (string= vp ""))
-               (if (string= vp "-") 'auto
-                 (string-to-list (cl-subseq vp 1 -1))))))))
+  "Parse INPUT."
+  (let ((it
+         (emmet-regex "\\(-[wmso]+-\\|-\\|\\)\\(.*\\)" input
+                      '(0 1 2 3))))
+    (if it
+        (list
+         (elt it 2)
+         (let ((vp
+                (elt it 1)))
+           (if
+               (not
+                (string= vp ""))
+               (if
+                   (string= vp "-")
+                   'auto
+                 (string-to-list
+                  (cl-subseq vp 1 -1))))))
+      (list 'error
+            (concat "expected " "css vendor prefixes")))))
 
 (defun emmet-css-subexpr (exp)
+  "Parse subexpression from EXP."
   (let* ((importantp (emmet-css-important-p exp)))
     (cl-destructuring-bind (exp vp)
         (emmet-css-split-vendor-prefixes exp)
@@ -121,11 +170,12 @@
                ,@(emmet-css-parse-args args))))))
 
 (defun emmet-css-toknize (str)
+  "Tokenize STR."
   (let* ((i (split-string str "+"))
          (rt nil))
     (cl-loop
-     (let ((f (first i))
-           (s (second i)))
+     (let ((f (cl-first i))
+           (s (cl-second i)))
        (if f
            (if (and s (or (string= s "")
                           (string-match "^\\(?:[ #0-9$]\\|-[0-9]\\)" s)))
@@ -138,6 +188,7 @@
          (cl-return (nreverse rt)))))))
 
 (defun emmet-css-expr (input)
+  "Return css sub expressions from INPUT."
   (mapcar #'emmet-css-subexpr
           (emmet-css-toknize input)))
 
@@ -160,34 +211,45 @@
          "\\):.*$"))
 
 (defun emmet-css-instantiate-lambda (str)
-  (cl-flet ((insert-space-between-name-and-body
-          (str)
-          (if (string-match "^\\([a-z-]+:\\)\\(.+\\)$" str)
-              (emmet-join-string
-               (mapcar (lambda (ref) (match-string ref str)) '(1 2)) " ")
-            str))
-         (split-string-to-body
-          (str args-sym)
-          (let ((rt '(concat)) (idx-max 0))
-            (cl-loop for i from 0 to 255 do
-                  (emmet-aif
-                   (string-match "\\(?:|\\|${\\(?:\\([0-9]\\)\\|\\)\\(?::\\(.+?\\)\\|\\)}\\)" str)
-                   (cl-destructuring-bind (mat idx def)
-                       (mapcar (lambda (ref) (match-string ref str)) '(0 1 2))
-                     (setf rt
-                           `((or
-                              (nth ,(let ((cur-idx (if idx (1- (string-to-number idx)) i)))
-                                      (setf idx-max (max cur-idx idx-max)))
-                                   ,args-sym)
-                              ,(or def ""))
-                             ,(substring str 0 it) ;; ordered to reverse
-                             ,@rt))
-                     (setf str (substring str (+ it (length mat)))))
-                   ;; don't use nreverse. cause bug in emacs-lisp.
-                   (cl-return (cons idx-max (reverse (cons str rt)))))))))
+  "Make lambda from STR."
+  (cl-flet
+      ((insert-space-between-name-and-body
+         (str)
+         (if (string-match "^\\([a-z-]+:\\)\\(.+\\)$" str)
+             (emmet-join-string
+              (mapcar (lambda (ref)
+                        (match-string ref str)) '(1 2)) " ")
+           str))
+       (split-string-to-body
+         (str args-sym)
+         (let ((rt '(concat))
+               (idx-max 0))
+           (cl-loop for i from 0 to 255 do
+                    (emmet-aif
+                     (string-match
+                      "\\(?:|\\|${\\(?:\\([0-9]\\)\\|\\)\\(?::\\(.+?\\)\\|\\)}\\)"
+                      str)
+                     (cl-destructuring-bind (mat idx def)
+                         (mapcar (lambda (ref)
+                                   (match-string ref str)) '(0 1 2))
+                       (setf rt
+                             `((or
+                                (nth
+                                 ,(let ((cur-idx (if idx (1- (string-to-number
+                                                              idx)) i)))
+                                    (setf idx-max (max cur-idx idx-max)))
+                                 ,args-sym)
+                                ,(or def ""))
+                               ,(substring str 0 it) ;; ordered to reverse
+                               ,@rt))
+                       (setf str (substring str (+ it (length mat)))))
+                     ;; don't use nreverse. cause bug in emacs-lisp.
+                     (cl-return (cons idx-max (reverse (cons str rt)))))))))
     (let ((args (gensym))
           (str  (insert-space-between-name-and-body str)))
-      (cl-destructuring-bind (idx-max . body) (split-string-to-body str args)
+      (cl-destructuring-bind
+          (idx-max . body)
+          (split-string-to-body str args)
         (eval
          `(lambda (&rest ,args)
             (progn
@@ -204,7 +266,9 @@
  emmet-vendor-prefixes-default
  (list "webkit" "moz" "ms" "o"))
 (defun emmet-css-transform-vendor-prefixes (line vp)
-  (let ((key (cl-subseq line 0 (or (cl-position ?: line) (length line)))))
+  "Transform LINE according to VP."
+  (let ((key (cl-subseq line 0 (or (cl-position ?: line)
+                                   (length line)))))
     (let ((vps (if (eql vp 'auto)
                    (gethash key
                             emmet-vendor-prefixes-properties
@@ -216,56 +280,65 @@
                                  ((= v ?o) "o")))
                          vp))))
       (emmet-join-string
-       (append (mapcar (lambda (v) (concat "-" v "-" line)) vps)
+       (append (mapcar (lambda (v)
+                         (concat "-" v "-" line)) vps)
                (list line))
        "\n"))))
 
 (defun emmet-css-transform-exprs (exprs)
+  "Transform EXPRS as css."
   (emmet-join-string
    (mapcar
     #'(lambda (expr)
-        (let* 
-	    ((hash-map (if emmet-use-sass-syntax emmet-sass-snippets emmet-css-snippets))
-	     (basement
-	      (emmet-aif
-	       (or (gethash (car expr) hash-map) (gethash (car expr) emmet-css-snippets))
-	       (let ((set it) (fn nil) (unitlessp nil))
-		 (if (stringp set)
-		     (progn
-		       ;; new pattern
-		       ;; creating print function
-		       (setf fn (emmet-css-instantiate-lambda set))
-		       ;; get unitless or no
-		       (setf unitlessp
-			     (not (null (string-match
-					 emmet-css-unitless-properties-regex set))))
-		       ;; caching
-		       (puthash (car expr) (cons fn unitlessp) hash-map))
-		   (progn
-		     ;; cache hit.
-		     (setf fn (car set))
-		     (setf unitlessp (cdr set))))
-		 (apply fn
-			(mapcar
-			 #'(lambda (arg)
-			     (if (listp arg)
-				 (if unitlessp (car arg)
-				   (apply #'concat arg))
-			       arg))
-			 (cdddr expr))))
-	       (concat (car expr) ": "
-		       (emmet-join-string
-			(mapcar #'(lambda (arg)
-				    (if (listp arg) (apply #'concat arg) arg))
-				(cdddr expr)) " ")
-		       ";"))))
+        (let* ((hash-map (if emmet-use-sass-syntax emmet-sass-snippets
+                           emmet-css-snippets))
+	             (basement
+	              (emmet-aif
+	               (or (gethash (car expr) hash-map)
+                     (gethash (car expr) emmet-css-snippets))
+	               (let ((set it)
+                       (fn nil)
+                       (unitlessp nil))
+		               (if (stringp set)
+		                   (progn
+		                     ;; new pattern
+		                     ;; creating print function
+		                     (setf fn (emmet-css-instantiate-lambda set))
+		                     ;; get unitless or no
+		                     (setf unitlessp
+			                         (not
+                                (null
+                                 (string-match
+					                        emmet-css-unitless-properties-regex set))))
+		                     ;; caching
+		                     (puthash (car expr)
+                                  (cons fn unitlessp) hash-map))
+		                 (progn
+		                   ;; cache hit.
+		                   (setf fn (car set))
+		                   (setf unitlessp (cdr set))))
+		               (apply fn
+			                    (mapcar
+			                     #'(lambda (arg)
+			                         (if (listp arg)
+				                           (if unitlessp (car arg)
+				                             (apply #'concat arg))
+			                           arg))
+			                     (cdddr expr))))
+	               (concat (car expr) ": "
+		                     (emmet-join-string
+			                    (mapcar #'(lambda (arg)
+				                              (if (listp arg)
+                                          (apply #'concat arg) arg))
+				                          (cdddr expr)) " ")
+		                     ";"))))
           (let ((line
                  (if (caddr expr)
                      (concat (cl-subseq basement 0 -1) " !important;")
                    basement)))
-	    ;; remove trailing semicolon while editing Sass files
-	    (if (and emmet-use-sass-syntax (equal ";" (cl-subseq line -1)))
-		(setq line (cl-subseq line 0 -1)))
+	          ;; remove trailing semicolon while editing Sass files
+	          (if (and emmet-use-sass-syntax (equal ";" (cl-subseq line -1)))
+		            (setq line (cl-subseq line 0 -1)))
             (emmet-aif
              (cadr expr)
              (emmet-css-transform-vendor-prefixes line it)
@@ -274,4 +347,5 @@
    "\n"))
 
 (defun emmet-css-transform (input)
+  "Invoke `emmet-css-transform-exprs' with tokenized INPUT."
   (emmet-css-transform-exprs (emmet-css-expr input)))

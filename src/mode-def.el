@@ -2,41 +2,46 @@
 ;; Emmet minor mode
 
 (defgroup emmet nil
-  "Customization group for emmet-mode."
+  "Customization group for `emmet-mode'."
   :group 'convenience)
 
 (defun emmet-expr-on-line ()
-  "Extract a emmet expression and the corresponding bounds
-   for the current line."
+  "Extract a emmet expression and the corresponding bounds for the current line."
   (let* ((end (point))
          (start (emmet-find-left-bound))
          (line (buffer-substring-no-properties start end))
          (expr (emmet-regex "\\([ \t]*\\)\\([^\n]+\\)" line 2)))
-    (if (first expr)
-        (list (first expr) start end))))
+    (if (cl-first expr)
+        (list (cl-first expr) start end))))
 
 (defun emmet-find-left-bound ()
-  "Find the left bound of an emmet expr"
-  (save-excursion (save-match-data
-    (let ((char (char-before))
-          (in-style-attr (looking-back "style=[\"'][^\"']*" nil))
-          (syn-tab (make-syntax-table)))
-      (modify-syntax-entry ?\\ "\\")
-      (while char
-        (cond ((and in-style-attr (member char '(?\" ?\')))
-               (setq char nil))
-              ((member char '(?\} ?\] ?\)))
-               (with-syntax-table syn-tab
-                 (backward-sexp) (setq char (char-before))))
-              ((eq char ?\>)
-               (if (looking-back "<[^>]+>" (line-beginning-position))
-                   (setq char nil)
-                 (progn (backward-char) (setq char (char-before)))))
-              ((not (string-match-p "[[:space:]\n;]" (string char)))
-               (backward-char) (setq char (char-before)))
-              (t
-               (setq char nil))))
-      (point)))))
+  "Find the left bound of an emmet expr."
+  (save-excursion
+    (save-match-data
+      (let ((char (char-before))
+            (in-style-attr (looking-back "style=[\"'][^\"']*" nil))
+            (syn-tab (make-syntax-table)))
+        (modify-syntax-entry ?\\ "\\")
+        (while char
+          (cond ((and in-style-attr (member char '(?\" ?\')))
+                 (setq char nil))
+                ((member char '(?\} ?\] ?\)))
+                 (with-syntax-table syn-tab
+                   (backward-sexp)
+                   (setq char (char-before))))
+                ((eq char ?\>)
+                 (if (looking-back "<[^>]+>"
+                                   (line-beginning-position))
+                     (setq char nil)
+                   (progn (backward-char)
+                          (setq char (char-before)))))
+                ((not (string-match-p "[[:space:]\n;]" (string
+                                                        char)))
+                 (backward-char)
+                 (setq char (char-before)))
+                (t
+                 (setq char nil))))
+        (point)))))
 
 (defcustom emmet-indentation 4
   "Number of spaces used for indentation."
@@ -49,8 +54,7 @@
   :group 'emmet)
 
 (defcustom emmet-use-style-tag-and-attr-detection t
-  "When true, enables detection of style tags and attributes in HTML
-to provide proper CSS abbreviations completion."
+  "Whether to detect style tags and attributes in HTML for CSS completion."
   :type 'boolean
   :group 'emmet)
 
@@ -78,8 +82,7 @@ NOTE: only \" /\", \"/\" and \"\" are valid."
 (make-variable-buffer-local 'emmet-use-css-transform)
 
 (defvar emmet-use-sass-syntax nil
-  "When true, uses Sass syntax for CSS abbreviations expanding,
-e. g. without semicolons")
+  "Whether to use Sass syntax for CSS abbreviations expanding.")
 (make-variable-buffer-local 'emmet-use-sass-syntax)
 
 
@@ -101,18 +104,23 @@ e. g. without semicolons")
 (defvar emmet-jsx-major-modes
   '(rjsx-mode
     typescript-tsx-mode
+    tsx-ts-mode
+    typescript-ts-mode
+    js-ts-mode
     js-jsx-mode
     js2-jsx-mode
     jsx-mode
     js-mode)
-  "Which modes to check before using jsx class expansion")
+  "Which modes to check before using jsx class expansion.")
 
 (defun emmet-transform (input)
+  "Transform INPUT with `emmet-css-transform' or `emmet-html-transform'."
   (if (or (emmet-detect-style-tag-and-attr) emmet-use-css-transform)
       (emmet-css-transform input)
     (emmet-html-transform input)))
 
 (defun emmet-detect-style-tag-and-attr ()
+  "Detect style tag and attribute."
   (let* ((style-attr-end "[^=][\"']")
          (style-attr-begin "style=[\"']")
          (style-tag-end "</style>")
@@ -123,13 +131,16 @@ e. g. without semicolons")
           (emmet-check-if-between style-tag-begin style-tag-end))))) ; style tag
 
 (defun emmet-check-if-between (begin end)
+  "Search for regexps BEGIN and END."
   (let ((begin-back (emmet-find "backward" begin))
         (end-back (emmet-find "backward" end))
         (begin-front (emmet-find "forward" begin))
         (end-front (emmet-find "forward" end)))
     (and begin-back end-front
-         (or (not end-back) (> begin-back end-back))
-         (or (not begin-front) (< end-front begin-front)))))
+         (or (not end-back)
+             (> begin-back end-back))
+         (or (not begin-front)
+             (< end-front begin-front)))))
 
 (defcustom emmet-preview-default nil
   "If non-nil then preview is the default action.
@@ -161,15 +172,14 @@ For more information see `emmet-mode'."
           (emmet-preview beg end))
       (let ((expr (emmet-expr-on-line)))
         (if expr
-            (let ((markup (emmet-transform (first expr))))
+            (let ((markup (emmet-transform (cl-first expr))))
               (when markup
-                (delete-region (second expr) (third expr))
+                (delete-region (cl-second expr) (cl-third expr))
                 (emmet-insert-and-flash markup)
                 (emmet-reposition-cursor expr))))))))
 
 (defvar emmet-mode-keymap
-  (let
-      ((map (make-sparse-keymap)))
+  (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-j") 'emmet-expand-line)
     (define-key map (kbd "<C-return>") 'emmet-expand-line)
     (define-key map (kbd "<C-M-right>") 'emmet-next-edit-point)
@@ -214,6 +224,7 @@ See also `emmet-expand-line'."
 ;; Emmet yasnippet integration
 
 (defun emmet-transform-yas (input)
+  "Transform INPUT for yasnippet integration."
   (let* ((leaf-count 0)
          (emmet-leaf-function
           (lambda ()
@@ -222,18 +233,23 @@ See also `emmet-expand-line'."
 
 ;;;###autoload
 (defun emmet-expand-yas ()
+  "Expand emmet expression on the current line with yasnippet."
   (interactive)
   (let ((expr (emmet-expr-on-line)))
     (if expr
-        (let* ((markup (emmet-transform-yas (first expr)))
+        (let* ((markup (emmet-transform-yas (cl-first expr)))
                (filled (replace-regexp-in-string "><" ">\n<" markup)))
-          (delete-region (second expr) (third expr))
+          (delete-region (cl-second expr)
+                         (cl-third expr))
           (insert filled)
-          (indent-region (second expr) (point))
+          (indent-region (cl-second expr)
+                         (point))
           (if (fboundp 'yas/expand-snippet)
               (yas/expand-snippet
-               (buffer-substring (second expr) (point))
-               (second expr) (point)))))))
+               (buffer-substring (cl-second expr)
+                                 (point))
+               (cl-second expr)
+               (point)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Real-time preview
@@ -267,9 +283,12 @@ See also `emmet-expand-line'."
     map))
 
 (defun emmet-html-text-p (markup)
+  "Check whether MARKUP is html."
   (string-match "^[\s|\t|\n|\r]*<.*$" markup))
 
+;;;###autoload
 (defun emmet-preview-accept ()
+  "Preview current expanding."
   (interactive)
   (let ((ovli emmet-preview-input)
         (expr (emmet-expr-on-line)))
@@ -279,31 +298,41 @@ See also `emmet-expand-line'."
       (let* ((indent (current-indentation))
              (markup (emmet-preview-transformed indent)))
         (when markup
-          (delete-region (overlay-start ovli) (overlay-end ovli))
+          (delete-region (overlay-start ovli)
+                         (overlay-end ovli))
           (emmet-insert-and-flash markup)
           (emmet-reposition-cursor expr)))))
   (emmet-preview-abort))
 
 (defun emmet-html-next-insert-point (str)
+  "Insert STR."
   (with-temp-buffer
     (insert str)
     (goto-char (point-min))
     (or
-     (emmet-aif (emmet-go-to-edit-point 1 t) (- it 1)) ; try to find an edit point
-     (emmet-aif (re-search-forward ".+</" nil t) (- it 3))   ; try to place cursor after tag contents
+     (let ((it
+            (emmet-go-to-edit-point 1 t))) ; try to find an edit point
+       (if it
+           (- it 1)
+         it))
+     (emmet-aif (re-search-forward ".+</" nil t)
+                (- it 3))               ; try to place cursor after tag contents
      (length str))))                             ; ok, just go to the end
 
 (defun emmet-css-next-insert-point (str)
+  "Return position for inserting in STR."
   (let ((regexp (if emmet-use-sass-syntax ": *\\($\\)" ": *\\(;\\)$")))
     (save-match-data
       (set-match-data nil t)
       (string-match regexp str)
-      (or (match-beginning 1) (length str)))))
+      (or (match-beginning 1)
+          (length str)))))
 
 (defvar emmet-flash-ovl nil)
 (make-variable-buffer-local 'emmet-flash-ovl)
 
 (defun emmet-remove-flash-ovl (buf)
+  "Remove overlay `emmet-flash-ovl' in buffer BUF."
   (with-current-buffer buf
     (when (overlayp emmet-flash-ovl)
       (delete-overlay emmet-flash-ovl))
@@ -317,19 +346,20 @@ expansion after insertion."
   :group 'emmet)
 
 (defcustom emmet-move-cursor-after-expanding t
-  "If non-nil the the cursor position is
-moved to before the first closing tag when the exp was expanded."
+  "Whether to move the cursor position before the first closing tag."
   :type 'boolean
   :group 'emmet)
 
 (defcustom emmet-move-cursor-between-quotes nil
-  "If emmet-move-cursor-after-expands is non-nil and this is non-nil then
-cursor position will be moved to after the first quote."
+  "Whether to move cursor position after the first quote.
+If t, `emmet-move-cursor-after-expands' should also be non-nil."
   :type 'boolean
   :group 'emmet)
 
 (defun emmet-reposition-cursor (expr)
-  (let ((output-markup (buffer-substring-no-properties (second expr) (point))))
+  "Move cursor for EXPR if `emmet-move-cursor-after-expanding' is non nil."
+  (let ((output-markup (buffer-substring-no-properties (cl-second expr)
+                                                       (point))))
     (when emmet-move-cursor-after-expanding
       (let ((p (point))
             (new-pos (if (emmet-html-text-p output-markup)
@@ -340,6 +370,7 @@ cursor position will be moved to after the first quote."
             new-pos))))))
 
 (defun emmet-insert-and-flash (markup)
+  "Insert MARKUP and flash region."
   (emmet-remove-flash-ovl (current-buffer))
   (let ((here (point)))
     (insert markup)
@@ -385,16 +416,16 @@ accept it or skip it."
         (overlay-put ovlo 'before-string info)
         (setq emmet-preview-input  ovli)
         (setq emmet-preview-output ovlo)
-        (add-hook 'before-change-functions 'emmet-preview-before-change t t)
+        (add-hook 'before-change-functions #'emmet-preview-before-change t t)
         (goto-char here)
-        (add-hook 'post-command-hook 'emmet-preview-post-command t t)))))
+        (add-hook 'post-command-hook #'emmet-preview-post-command t t)))))
 
 (defun emmet-preview-online ()
   "Display `emmet-preview' on the fly as the user types.
 
 To use this, add the function as a local hook:
 
-  (add-hook 'post-self-insert-hook 'emmet-preview-online t t)
+  \=(add-hook \='post-self-insert-hook \='emmet-preview-online t t)
 
 or enable `emmet-preview-mode'."
   (ignore-errors
@@ -414,58 +445,66 @@ See `emmet-preview-online'."
   :init-value nil
   :group 'emmet
   (if emmet-preview-mode
-      (add-hook 'post-self-insert-hook 'emmet-preview-online :append :local)
-    (remove-hook 'post-self-insert-hook 'emmet-preview-online :local)))
+      (add-hook 'post-self-insert-hook #'emmet-preview-online :append :local)
+    (remove-hook 'post-self-insert-hook #'emmet-preview-online :local)))
 
 (defvar emmet-preview-pending-abort nil)
 (make-variable-buffer-local 'emmet-preview-pending-abort)
 
 (defun emmet-preview-before-change (beg end)
-  (when
-      (or (> beg (overlay-end emmet-preview-input))
-          (< beg (overlay-start emmet-preview-input))
-          (> end (overlay-end emmet-preview-input))
-          (< end (overlay-start emmet-preview-input)))
+  "Check region between BEG and END has overlay `emmet-preview-input'."
+  (when (or (> beg (overlay-end emmet-preview-input))
+            (< beg (overlay-start emmet-preview-input))
+            (> end (overlay-end emmet-preview-input))
+            (< end (overlay-start emmet-preview-input)))
     (setq emmet-preview-pending-abort t)))
 
+;;;###autoload
 (defun emmet-preview-abort ()
   "Abort emmet code preview."
   (interactive)
   (setq emmet-preview-pending-abort nil)
-  (remove-hook 'before-change-functions 'emmet-preview-before-change t)
+  (remove-hook 'before-change-functions #'emmet-preview-before-change t)
   (when (overlayp emmet-preview-input)
     (delete-overlay emmet-preview-input))
   (setq emmet-preview-input nil)
   (when (overlayp emmet-preview-output)
     (delete-overlay emmet-preview-output))
   (setq emmet-preview-output nil)
-  (remove-hook 'post-command-hook 'emmet-preview-post-command t)
+  (remove-hook 'post-command-hook #'emmet-preview-post-command t)
   (when emmet-old-show-paren (show-paren-mode 1)))
 
 (defun emmet-preview-post-command ()
+  "Try execute `emmet-preview-post-command-1' withour error."
   (condition-case err
       (emmet-preview-post-command-1)
     (error (message "emmet-preview-post: %s" err))))
 
 (defun emmet-preview-post-command-1 ()
+  "Update or abort preview."
   (if (and (not emmet-preview-pending-abort)
-           (<= (point) (overlay-end emmet-preview-input))
-           (>= (point) (overlay-start emmet-preview-input)))
+           (<= (point)
+               (overlay-end emmet-preview-input))
+           (>= (point)
+               (overlay-start emmet-preview-input)))
       (emmet-update-preview (current-indentation))
     (emmet-preview-abort)))
 
-(defun emmet-preview-transformed (indent)
+(defun emmet-preview-transformed (_indent)
+  "Transform `emmet-preview-input' with `emmet-transform'."
   (let* ((string (buffer-substring-no-properties
-		  (overlay-start emmet-preview-input)
-		  (overlay-end emmet-preview-input))))
-    (let ((output (emmet-transform string)))
-      (when output
-        output))))
+		              (overlay-start emmet-preview-input)
+		              (overlay-end emmet-preview-input)))
+         (output (emmet-transform string)))
+    (when output
+      output)))
 
 (defun emmet-update-preview (indent)
+  "Update preview with INDENT."
   (let* ((pretty (emmet-preview-transformed indent))
-         (show (when pretty
-                 (propertize pretty 'face 'highlight))))
+         (show
+          (when pretty
+            (propertize pretty 'face 'highlight))))
     (when show
       (overlay-put emmet-preview-output 'after-string
                    (concat show "\n")))))
@@ -476,43 +515,45 @@ See `emmet-preview-online'."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun emmet-go-to-edit-point (count &optional only-before-closed-tag)
-  (let*
-      ((between-tags
-        (if only-before-closed-tag "\\(><\\)/" "\\(><\\)"))
-       (indented-line "\\(^[[:blank:]]+$\\)")
-       (between-quotes
-        (if emmet-move-cursor-between-quotes "\\(=\\(\"\\|'\\)\\{2\\}\\)" nil))
-       (whole-regex
-        (mapconcat 'identity
-                   (delq nil
-                         (list between-tags indented-line between-quotes))
-                   "\\|"))
-       (edit-point (format "\\(%s\\)" whole-regex)))
+  "Go to edit point due to COUNT and ONLY-BEFORE-CLOSED-TAG."
+  (let* ((between-tags
+          (if only-before-closed-tag "\\(><\\)/" "\\(><\\)"))
+         (indented-line "\\(^[[:blank:]]+$\\)")
+         (between-quotes
+          (if emmet-move-cursor-between-quotes "\\(=\\(\"\\|'\\)\\{2\\}\\)" nil))
+         (whole-regex
+          (mapconcat #'identity
+                     (delq nil
+                           (list between-tags indented-line between-quotes))
+                     "\\|"))
+         (edit-point (format "\\(%s\\)" whole-regex)))
     (if (> count 0)
-	(progn
-	  (forward-char)
-	  (let
-	      ((search-result (re-search-forward edit-point nil t count)))
-	    (if search-result
-		(progn
-		  (cond
-		   ((match-string 2) (goto-char (- (match-end 2) 1)))
-		   ((match-string 3) (end-of-line))
-                   ((match-string 4) (backward-char)))
-		  (point))
-		(backward-char))))
-      (progn
-	(backward-char)
-	(let
-	    ((search-result (re-search-backward edit-point nil t (- count))))
-	  (if search-result
 	      (progn
-		(cond
-		 ((match-string 2) (goto-char (- (match-end 2) 1)))
-		 ((match-string 3) (end-of-line))
-		 ((match-string 4) (forward-char 2)))
-		(point))
-	      (forward-char)))))))
+	        (forward-char)
+	        (let ((search-result (re-search-forward edit-point nil t count)))
+	          (if search-result
+		            (progn
+		              (cond ((match-string 2)
+                         (goto-char (- (match-end 2) 1)))
+		                    ((match-string 3)
+                         (end-of-line))
+                        ((match-string 4)
+                         (backward-char)))
+		              (point))
+		          (backward-char))))
+      (progn
+	      (backward-char)
+	      (let ((search-result (re-search-backward edit-point nil t (- count))))
+	        (if search-result
+	            (progn
+		            (cond ((match-string 2)
+                       (goto-char (- (match-end 2) 1)))
+		                  ((match-string 3)
+                       (end-of-line))
+		                  ((match-string 4)
+                       (forward-char 2)))
+		            (point))
+	          (forward-char)))))))
 
 (defcustom emmet-postwrap-goto-edit-point nil
   "Goto first edit point after wrapping markup?"
@@ -521,10 +562,11 @@ See `emmet-preview-online'."
 
 ;;;###autoload
 (defun emmet-wrap-with-markup (wrap-with)
-  "Wrap region with markup."
+  "Wrap region with markup WRAP-WITH."
   (interactive "sExpression to wrap with: ")
   (let* ((multi (string-match "\\*$" wrap-with))
-         (txt (buffer-substring-no-properties (region-beginning) (region-end)))
+         (txt (buffer-substring-no-properties (region-beginning)
+                                              (region-end)))
          (to-wrap (if multi
                       (split-string txt "\n")
                     (list txt)))
@@ -557,26 +599,29 @@ See `emmet-preview-online'."
            to-wrap
            :initial-value (emmet-transform expr))))
     (when markup
-      (delete-region (region-beginning) (region-end))
+      (delete-region (region-beginning)
+                     (region-end))
       (insert markup)
-      (indent-region (region-beginning) (region-end))
+      (indent-region (region-beginning)
+                     (region-end))
       (if emmet-postwrap-goto-edit-point
           (let ((end (region-end)))
             (goto-char (region-beginning))
             (unless (ignore-errors (progn (emmet-next-edit-point 1) t))
-              (goto-char end)))
-        ))))
+              (goto-char end)))))))
 
 ;;;###autoload
 (defun emmet-next-edit-point (count)
+  "Call `emmet-go-to-edit-point' with COUNT or signal error."
   (interactive "^p")
   (unless (or emmet-use-css-transform (emmet-go-to-edit-point count))
-    (error "Last edit point reached.")))
+    (error "Last edit point reached")))
 
 ;;;###autoload
 (defun emmet-prev-edit-point (count)
+  "Go to previous edit point COUNT times."
   (interactive "^p")
   (unless (or emmet-use-css-transform (emmet-go-to-edit-point (- count)))
-    (error "First edit point reached.")))
+    (error "First edit point reached")))
 
 (provide 'emmet-mode)

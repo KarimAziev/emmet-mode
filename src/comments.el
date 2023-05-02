@@ -1,15 +1,17 @@
-;;; emmet-mode.el --- Unofficial Emmet's support for emacs
+;;; emmet-mode.el --- Unofficial Emmet's support  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2014-     Dmitry Mukhutdinov (@flyingleafe  https://github.com/flyingleafe)
 ;; Copyright (C) 2014-     William David Mayo (@pbocks       https://github.com/pobocks)
 ;; Copyright (C) 2013-     Shin Aoyama        (@smihica      https://github.com/smihica)
 ;; Copyright (C) 2009-2012 Chris Done
 
+
 ;; Version: 1.0.10
 ;; Author: Shin Aoyama <smihica@gmail.com>
 ;; URL: https://github.com/smihica/emmet-mode
 ;; Last-Updated: 2014-08-11 Mon
 ;; Keywords: convenience
+;; Package-Requires: ((emacs "24.3"))
 
 ;; This file is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -62,4 +64,7 @@
 ;; This is a fork of zencoding-mode to support Emmet's feature.
 ;; zencoding-mode (https://github.com/rooney/zencoding)
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
 
