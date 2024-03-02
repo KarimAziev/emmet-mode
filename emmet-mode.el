@@ -352,7 +352,7 @@ For more information see `emmet-mode'."
     (define-key map (kbd "<C-return>") 'emmet-expand-line)
     (define-key map (kbd "<C-M-right>") 'emmet-next-edit-point)
     (define-key map (kbd "<C-M-left>") 'emmet-prev-edit-point)
-    (define-key map (kbd "C-c C-c w") 'emmet-wrap-with-markup)
+    (define-key map (kbd "C-c M-w") 'emmet-wrap-with-markup)
     map)
   "Keymap for emmet minor mode.")
 
