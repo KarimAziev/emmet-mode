@@ -452,7 +452,7 @@ See also `emmet-expand-line'."
 
 (defun emmet-html-text-p (markup)
   "Check whether MARKUP is html."
-  (string-match "^[\s|\t|\n|\r]*<.*$" markup))
+  (string-match "^[\s|\t\n\r]*<.*$" markup))
 
 ;;;###autoload
 (defun emmet-preview-accept ()
@@ -593,7 +593,7 @@ accept it or skip it."
 
 To use this, add the function as a local hook:
 
-  \=(add-hook \='post-self-insert-hook \='emmet-preview-online t t)
+\=(add-hook \\='post-self-insert-hook \\='emmet-preview-online t t)
 
 or enable `emmet-preview-mode'."
   (ignore-errors
